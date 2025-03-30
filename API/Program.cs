@@ -17,12 +17,15 @@ using FluentValidation.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Application, Infrastructure, Persistence
+// ✅Application, Infrastructure, Persistence
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure();
 builder.Services.AddPersistence(builder.Configuration);
 
-// Identity configuration
+// ✅ 2FA üçün MemoryCache
+builder.Services.AddMemoryCache();
+
+// ✅ Identity configuration
 builder.Services.AddIdentity<AppUser, IdentityRole>(options =>
 {
     options.Password.RequireDigit = true;
@@ -34,7 +37,7 @@ builder.Services.AddIdentity<AppUser, IdentityRole>(options =>
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
-// JWT Configuration
+// ✅ JWT configuration
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 builder.Services.Configure<JwtSettings>(jwtSettings);
 
@@ -58,7 +61,7 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-// Rate Limiting Configuration
+// ✅ Rate Limiting
 builder.Services.AddRateLimiter(options =>
 {
     options.AddPolicy("fixed", context => RateLimitPartition.GetFixedWindowLimiter(
@@ -77,46 +80,44 @@ builder.Services.AddRateLimiter(options =>
     };
 });
 
+// ✅ Controllers & FluentValidation
 builder.Services.AddControllers();
+builder.Services.AddFluentValidationAutoValidation();
 
-// FluentValidation
-builder.Services
-    .AddFluentValidationAutoValidation();
-
-
-// Swagger
+// ✅ Swagger
 builder.Services.AddSwaggerDocumentation();
 
-// Exception middleware
+// ✅ Global Exception Middleware
 builder.Services.AddTransient<ExceptionMiddleware>();
 
 var app = builder.Build();
 
-// Swagger Middleware
+// ✅ Swagger
 if (app.Environment.IsDevelopment())
 {
     app.UseSwaggerDocumentation();
 }
 
-// Global Exception Middleware
+// ✅ Global Exception Handling
 app.UseMiddleware<ExceptionMiddleware>();
 
-// HTTPS Redirect
+// ✅ HTTPS
 app.UseHttpsRedirection();
 
-// Rate Limiter
+// ✅ Rate Limiting
 app.UseRateLimiter();
 
-// Token Blacklist Middleware
+// ✅ Token Blacklist Middleware
 app.UseMiddleware<TokenBlacklistMiddleware>();
 
-// Authentication & Authorization
+// ✅ Authentication & Authorization
 app.UseAuthentication();
 app.UseAuthorization();
 
+// ✅ Controllers
 app.MapControllers();
 
-// Apply migrations and seed data
+// ✅ Apply migrations and seed roles/users
 using var scope = app.Services.CreateScope();
 var services = scope.ServiceProvider;
 
