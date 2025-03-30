@@ -39,48 +39,51 @@ public class TransactionService : ITransactionService
         if (!Enum.TryParse(dto.Type, out TransactionType type))
             return Result<string>.Failure("Invalid transaction type", 400);
 
-        var fromAccount = await _accountReadRepository.GetByIdAsync(dto.FromAccountId);
-        if (fromAccount == null || fromAccount.UserId != userId || fromAccount.IsDeleted)
-            return Result<string>.Failure("FromAccount not found or not owned by user", 404);
+        Account? fromAccount = null;
+        if (!string.IsNullOrWhiteSpace(dto.FromAccountId))
+        {
+            fromAccount = await _accountReadRepository.GetByIdAsync(dto.FromAccountId);
+            if (fromAccount == null || fromAccount.UserId != userId || fromAccount.IsDeleted)
+                return Result<string>.Failure("FromAccount not found or not owned by user", 404);
+        }
 
         Account? toAccount = null;
-
-        if (type == TransactionType.Transfer)
+        if (!string.IsNullOrWhiteSpace(dto.ToAccountId))
         {
-            if (string.IsNullOrWhiteSpace(dto.ToAccountId))
-                return Result<string>.Failure("ToAccountId is required", 400);
-
-            toAccount = await _accountReadRepository.GetByIdAsync(dto.ToAccountId!);
+            toAccount = await _accountReadRepository.GetByIdAsync(dto.ToAccountId);
             if (toAccount == null || toAccount.IsDeleted)
                 return Result<string>.Failure("ToAccount not found", 404);
         }
 
-        if ((type == TransactionType.Transfer || type == TransactionType.Withdraw) && fromAccount.Balance < dto.Amount)
+        if ((type == TransactionType.Transfer || type == TransactionType.Withdraw) && (fromAccount == null || fromAccount.Balance < dto.Amount))
+        {
             return Result<string>.Failure("Insufficient funds", 400);
+        }
 
         var transaction = new Transaction
         {
-            FromAccountId = dto.FromAccountId,
-            ToAccountId = dto.ToAccountId,
+            FromAccountId = fromAccount?.Id,
+            ToAccountId = toAccount?.Id,
             Amount = dto.Amount,
             Type = type,
             Status = TransactionStatus.Success,
             Description = dto.Description
         };
 
+        // Balance changes
         if (type == TransactionType.Withdraw || type == TransactionType.Transfer)
         {
-            fromAccount.Balance -= dto.Amount;
+            fromAccount!.Balance -= dto.Amount;
             _accountWriteRepository.Update(fromAccount);
         }
 
-        if (type == TransactionType.Deposit)
+        if (type == TransactionType.Deposit && toAccount != null)
         {
-            fromAccount.Balance += dto.Amount;
-            _accountWriteRepository.Update(fromAccount);
+            toAccount.Balance += dto.Amount;
+            _accountWriteRepository.Update(toAccount);
         }
 
-        if (type == TransactionType.Transfer && toAccount is not null)
+        if (type == TransactionType.Transfer && toAccount != null)
         {
             toAccount.Balance += dto.Amount;
             _accountWriteRepository.Update(toAccount);
@@ -129,7 +132,7 @@ public class TransactionService : ITransactionService
 
         var query = _readRepository
             .GetAll()
-            .Where(x => accountIds.Contains(x.FromAccountId) || accountIds.Contains(x.ToAccountId!))
+            .Where(x => accountIds.Contains(x.FromAccountId!) || accountIds.Contains(x.ToAccountId!))
             .OrderByDescending(x => x.Timestamp)
             .ProjectTo<TransactionDto>(_mapper.ConfigurationProvider);
 

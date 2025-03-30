@@ -5,7 +5,7 @@ namespace Domain.Entities;
 
 public class Transaction : BaseEntity
 {
-    public string FromAccountId { get; set; } = null!;
+    public string? FromAccountId { get; set; }
     public string? ToAccountId { get; set; }
     public decimal Amount { get; set; }
     public TransactionType Type { get; set; } = TransactionType.Transfer;
@@ -13,6 +13,6 @@ public class Transaction : BaseEntity
     public string Description { get; set; } = string.Empty;
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 
-    public Account FromAccount { get; set; } = null!;
+    public Account? FromAccount { get; set; }
     public Account? ToAccount { get; set; }
 }
