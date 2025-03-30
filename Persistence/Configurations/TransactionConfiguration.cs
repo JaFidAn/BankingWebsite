@@ -1,5 +1,4 @@
 using Domain.Entities;
-using Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -28,6 +27,12 @@ public class TransactionConfiguration : IEntityTypeConfiguration<Transaction>
 
         builder.Property(x => x.Timestamp)
             .IsRequired();
+
+        builder.Property(x => x.FromAccountId)
+            .IsRequired(false);
+
+        builder.Property(x => x.ToAccountId)
+            .IsRequired(false);
 
         builder.HasOne(x => x.FromAccount)
             .WithMany()

@@ -6,7 +6,7 @@ using System.Dynamic;
 
 namespace API.Controllers;
 
-[Authorize]
+
 [EnableRateLimiting("fixed")]
 [Route("api/[controller]")]
 [ApiController]

@@ -22,6 +22,8 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure();
 builder.Services.AddPersistence(builder.Configuration);
 
+builder.Services.AddHttpContextAccessor();
+
 // ✅ 2FA üçün MemoryCache
 builder.Services.AddMemoryCache();
 
