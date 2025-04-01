@@ -71,10 +71,14 @@ public class AuthService : IAuthService
         if (!result.Succeeded)
             return Result<string>.Failure(MessageGenerator.InvalidCredentials(), 401);
 
-        await _twoFactorService.GenerateAndSendCodeAsync(user);
+        if (user.TwoFactorEnabled)
+        {
+            await _twoFactorService.GenerateAndSendCodeAsync(user);
+            return Result<string>.Success(null!, "Verification code has been sent to your email");
+        }
 
-
-        return Result<string>.Success(null!, "Verification code has been sent to your email");
+        var token = await _tokenService.CreateToken(user);
+        return Result<string>.Success(token, "Login successful");
     }
 
     public async Task<Result<string>> VerifyTwoFactorCodeAsync(Verify2FADto dto)

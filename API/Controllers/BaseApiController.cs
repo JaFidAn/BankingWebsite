@@ -1,11 +1,9 @@
 using Application.Core;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Dynamic;
 
 namespace API.Controllers;
-
 
 [EnableRateLimiting("fixed")]
 [Route("api/[controller]")]
@@ -27,7 +25,11 @@ public class BaseApiController : ControllerBase
 
         if (actionName == "login")
         {
-            return Ok(new { message = result.Message });
+            return Ok(new
+            {
+                token = result.Value,
+                message = result.Message
+            });
         }
 
         if (type == typeof(string) && (actionName == "register" || actionName == "verify2fa"))
@@ -39,7 +41,15 @@ public class BaseApiController : ControllerBase
             });
         }
 
-        if (type == typeof(string) || type == typeof(Guid) || type == typeof(int))
+        if (type == typeof(string))
+        {
+            if (string.IsNullOrWhiteSpace(result.Message))
+                return Ok(new { message = result.Value });
+
+            return Ok(new { message = result.Message });
+        }
+
+        if (type == typeof(Guid) || type == typeof(int))
         {
             dynamic obj = new ExpandoObject();
             ((IDictionary<string, object>)obj)["id"] = result.Value!;
@@ -59,5 +69,4 @@ public class BaseApiController : ControllerBase
             message = result.Message
         });
     }
-
 }
