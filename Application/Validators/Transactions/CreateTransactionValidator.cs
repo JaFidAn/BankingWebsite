@@ -15,8 +15,9 @@ public class CreateTransactionValidator : AbstractValidator<CreateTransactionDto
             .Must(type =>
                 type == "Transfer" ||
                 type == "Deposit" ||
-                type == "Withdraw")
-            .WithMessage("Transaction type must be Transfer, Deposit or Withdraw");
+                type == "Withdraw" ||
+                type == "BillPayment")
+            .WithMessage("Transaction type must be Transfer, Deposit, Withdraw or BillPayment");
 
         RuleFor(x => x)
             .Must(dto =>

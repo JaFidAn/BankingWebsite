@@ -11,7 +11,10 @@ public class Transaction : BaseEntity
     public TransactionType Type { get; set; } = TransactionType.Transfer;
     public TransactionStatus Status { get; set; } = TransactionStatus.Pending;
     public string Description { get; set; } = string.Empty;
+    public string? Note { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+    public bool IsSuspicious { get; set; } = false;
 
     public Account? FromAccount { get; set; }
     public Account? ToAccount { get; set; }
