@@ -4,5 +4,6 @@ public enum TransactionType
 {
     Transfer = 0,
     Deposit = 1,
-    Withdraw = 2
+    Withdraw = 2,
+    BillPayment = 3
 }

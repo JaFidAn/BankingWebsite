@@ -5,7 +5,6 @@ using Application.Repositories.TransactionRepositories;
 using Application.Services;
 using Application.Utilities;
 using AutoMapper;
-using AutoMapper.QueryableExtensions;
 using Domain.Entities;
 using Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -19,19 +18,22 @@ public class TransactionService : ITransactionService
     private readonly IAccountReadRepository _accountReadRepository;
     private readonly IAccountWriteRepository _accountWriteRepository;
     private readonly IMapper _mapper;
+    private readonly IEncryptionService _encryptionService;
 
     public TransactionService(
         ITransactionWriteRepository writeRepository,
         ITransactionReadRepository readRepository,
         IAccountReadRepository accountReadRepository,
         IAccountWriteRepository accountWriteRepository,
-        IMapper mapper)
+        IMapper mapper,
+        IEncryptionService encryptionService)
     {
         _writeRepository = writeRepository;
         _readRepository = readRepository;
         _accountReadRepository = accountReadRepository;
         _accountWriteRepository = accountWriteRepository;
         _mapper = mapper;
+        _encryptionService = encryptionService;
     }
 
     public async Task<Result<string>> CreateAsync(string userId, CreateTransactionDto dto)
@@ -56,9 +58,9 @@ public class TransactionService : ITransactionService
         }
 
         if ((type == TransactionType.Transfer || type == TransactionType.Withdraw) && (fromAccount == null || fromAccount.Balance < dto.Amount))
-        {
             return Result<string>.Failure("Insufficient funds", 400);
-        }
+
+        var isSuspicious = await CheckForSuspicionAsync(userId, dto, type);
 
         var transaction = new Transaction
         {
@@ -67,10 +69,11 @@ public class TransactionService : ITransactionService
             Amount = dto.Amount,
             Type = type,
             Status = TransactionStatus.Success,
-            Description = dto.Description
+            Description = dto.Description,
+            Note = string.IsNullOrWhiteSpace(dto.Note) ? null : _encryptionService.Encrypt(dto.Note),
+            IsSuspicious = isSuspicious
         };
 
-        // Balance changes
         if (type == TransactionType.Withdraw || type == TransactionType.Transfer)
         {
             fromAccount!.Balance -= dto.Amount;
@@ -102,6 +105,9 @@ public class TransactionService : ITransactionService
             return Result<TransactionDto>.Failure(MessageGenerator.NotFound("Transaction"), 404);
 
         var dto = _mapper.Map<TransactionDto>(transaction);
+        if (!string.IsNullOrWhiteSpace(transaction.Note))
+            dto.Note = _encryptionService.Decrypt(transaction.Note);
+
         return Result<TransactionDto>.Success(dto);
     }
 
@@ -111,16 +117,27 @@ public class TransactionService : ITransactionService
             .GetAll()
             .Where(x => x.FromAccountId == accountId || x.ToAccountId == accountId)
             .OrderByDescending(x => x.Timestamp)
-            .ProjectTo<TransactionDto>(_mapper.ConfigurationProvider);
+            .Select(x => new TransactionDto
+            {
+                Id = x.Id,
+                FromAccountId = x.FromAccountId,
+                ToAccountId = x.ToAccountId,
+                Amount = x.Amount,
+                Type = x.Type.ToString(),
+                Status = x.Status.ToString(),
+                Description = x.Description,
+                Timestamp = x.Timestamp,
+                Note = string.IsNullOrWhiteSpace(x.Note) ? null : _encryptionService.Decrypt(x.Note)
+            });
 
-        var pagedResult = await PagedResult<TransactionDto>.CreateAsync(
+        var paged = await PagedResult<TransactionDto>.CreateAsync(
             query,
             paginationParams.PageNumber,
             paginationParams.PageSize,
             cancellationToken
         );
 
-        return Result<PagedResult<TransactionDto>>.Success(pagedResult);
+        return Result<PagedResult<TransactionDto>>.Success(paged);
     }
 
     public async Task<Result<PagedResult<TransactionDto>>> GetAllByUserIdAsync(string userId, PaginationParams paginationParams, CancellationToken cancellationToken)
@@ -134,15 +151,64 @@ public class TransactionService : ITransactionService
             .GetAll()
             .Where(x => accountIds.Contains(x.FromAccountId!) || accountIds.Contains(x.ToAccountId!))
             .OrderByDescending(x => x.Timestamp)
-            .ProjectTo<TransactionDto>(_mapper.ConfigurationProvider);
+            .Select(x => new TransactionDto
+            {
+                Id = x.Id,
+                FromAccountId = x.FromAccountId,
+                ToAccountId = x.ToAccountId,
+                Amount = x.Amount,
+                Type = x.Type.ToString(),
+                Status = x.Status.ToString(),
+                Description = x.Description,
+                Timestamp = x.Timestamp,
+                Note = string.IsNullOrWhiteSpace(x.Note) ? null : _encryptionService.Decrypt(x.Note)
+            });
 
-        var pagedResult = await PagedResult<TransactionDto>.CreateAsync(
+        var paged = await PagedResult<TransactionDto>.CreateAsync(
             query,
             paginationParams.PageNumber,
             paginationParams.PageSize,
             cancellationToken
         );
 
-        return Result<PagedResult<TransactionDto>>.Success(pagedResult);
+        return Result<PagedResult<TransactionDto>>.Success(paged);
+    }
+
+    private async Task<bool> CheckForSuspicionAsync(string userId, CreateTransactionDto dto, TransactionType type)
+    {
+        if (dto.Amount > 10000)
+            return true;
+
+        if (string.IsNullOrWhiteSpace(dto.FromAccountId))
+            return false;
+
+        var fromAccountId = dto.FromAccountId!;
+        var now = DateTime.UtcNow;
+
+        var today = now.Date;
+        var countToday = await _readRepository
+            .GetAll()
+            .CountAsync(x => x.FromAccountId == fromAccountId &&
+                             x.Timestamp >= today && x.Timestamp < today.AddDays(1));
+
+        if (countToday > 5)
+            return true;
+
+        if (!string.IsNullOrWhiteSpace(dto.ToAccountId))
+        {
+            var thirtyMinutesAgo = now.AddMinutes(-30);
+
+            var recentTransfers = await _readRepository
+                .GetAll()
+                .Where(x => x.FromAccountId == fromAccountId &&
+                            x.ToAccountId == dto.ToAccountId &&
+                            x.Timestamp >= thirtyMinutesAgo)
+                .CountAsync();
+
+            if (recentTransfers >= 3)
+                return true;
+        }
+
+        return false;
     }
 }
