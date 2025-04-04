@@ -1,32 +1,42 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
 using Application.Services;
 using Domain.Entities;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using Persistence.Contexts;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 
 public class TokenService : ITokenService
 {
     private readonly IConfiguration _configuration;
     private readonly ApplicationDbContext _context;
+    private readonly UserManager<AppUser> _userManager;
 
-    public TokenService(IConfiguration configuration, ApplicationDbContext context)
+    public TokenService(
+        IConfiguration configuration,
+        ApplicationDbContext context,
+        UserManager<AppUser> userManager)
     {
         _configuration = configuration;
         _context = context;
+        _userManager = userManager;
     }
 
     public async Task<string> CreateToken(AppUser user)
     {
+        var roles = await _userManager.GetRolesAsync(user);
+
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, user.Id),
             new(ClaimTypes.Name, user.UserName!),
             new(ClaimTypes.Email, user.Email!)
         };
+
+        claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JwtSettings:Key"]!));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -43,7 +53,7 @@ public class TokenService : ITokenService
         var tokenHandler = new JwtSecurityTokenHandler();
         var token = tokenHandler.CreateToken(tokenDescriptor);
 
-        return await Task.FromResult(tokenHandler.WriteToken(token));
+        return tokenHandler.WriteToken(token);
     }
 
     public async Task RevokeTokenAsync(string token)

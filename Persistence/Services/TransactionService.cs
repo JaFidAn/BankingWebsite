@@ -174,6 +174,27 @@ public class TransactionService : ITransactionService
         return Result<PagedResult<TransactionDto>>.Success(paged);
     }
 
+    public async Task<Result<List<TransactionDto>>> GetSuspiciousAsync()
+    {
+        var transactions = await _readRepository
+            .GetAll()
+            .Where(t => t.IsSuspicious)
+            .OrderByDescending(t => t.Timestamp)
+            .ToListAsync();
+
+        var dtos = _mapper.Map<List<TransactionDto>>(transactions);
+
+        foreach (var (dto, entity) in dtos.Zip(transactions))
+        {
+            if (!string.IsNullOrWhiteSpace(entity.Note))
+            {
+                dto.Note = _encryptionService.Decrypt(entity.Note);
+            }
+        }
+
+        return Result<List<TransactionDto>>.Success(dtos);
+    }
+
     private async Task<bool> CheckForSuspicionAsync(string userId, CreateTransactionDto dto, TransactionType type)
     {
         if (dto.Amount > 10000)
