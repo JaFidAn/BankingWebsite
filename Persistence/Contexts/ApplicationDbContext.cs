@@ -1,8 +1,8 @@
 using Domain.Entities;
-using Domain.Entities.Common;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Persistence.Extensions;
 using System.Security.Claims;
 
 namespace Persistence.Contexts;
@@ -23,6 +23,7 @@ public class ApplicationDbContext : IdentityDbContext<AppUser>
     public DbSet<Account> Accounts { get; set; }
     public DbSet<Transaction> Transactions { get; set; }
     public DbSet<Payment> Payments { get; set; }
+    public DbSet<AuditLog> AuditLogs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -32,23 +33,17 @@ public class ApplicationDbContext : IdentityDbContext<AppUser>
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        var userId = _httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var httpContext = _httpContextAccessor.HttpContext;
+        var userId = httpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var ipAddress = httpContext?.Connection.RemoteIpAddress?.ToString();
+        var userAgent = httpContext?.Request.Headers["User-Agent"].ToString();
+        var endpoint = httpContext?.Request.Path;
 
-        var entries = ChangeTracker.Entries()
-            .Where(e => e.Entity is BaseEntity &&
-                        (e.State == EntityState.Added || e.State == EntityState.Modified));
+        var auditLogs = ChangeTracker.GenerateAuditLogs(userId, ipAddress, userAgent, endpoint);
 
-        foreach (var entry in entries)
+        if (auditLogs.Any())
         {
-            var entity = (BaseEntity)entry.Entity;
-            entity.UpdatedAt = DateTime.UtcNow;
-            entity.UpdatedBy = userId;
-
-            if (entry.State == EntityState.Added)
-            {
-                entity.CreatedAt = DateTime.UtcNow;
-                entity.CreatedBy = userId;
-            }
+            AuditLogs.AddRange(auditLogs);
         }
 
         return await base.SaveChangesAsync(cancellationToken);

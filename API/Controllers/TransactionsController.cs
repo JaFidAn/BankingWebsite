@@ -1,6 +1,7 @@
 using Application.Core;
 using Application.DTOs.Transactions;
 using Application.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
@@ -42,6 +43,14 @@ public class TransactionsController : BaseApiController
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         var result = await _transactionService.GetAllByUserIdAsync(userId!, paginationParams, cancellationToken);
+        return HandleResult(result);
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpGet("suspicious")]
+    public async Task<IActionResult> GetSuspicious()
+    {
+        var result = await _transactionService.GetSuspiciousAsync();
         return HandleResult(result);
     }
 }
