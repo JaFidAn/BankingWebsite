@@ -3,7 +3,19 @@ A secure, scalable, and feature-rich backend API for managing banking operations
 
 🚀 Features
 
-✅ JWT Authentication & Role Management (Admin, User)✅ Two-Factor Authentication (2FA) Support✅ Clean Onion Architecture (Domain, Application, Infrastructure, Persistence, API)✅ Repository Pattern with Read/Write Separation✅ Full CRUD for Accounts, Transactions, and Payments✅ Audit Log System with IP Address, Browser Info, and Endpoint Tracking✅ Suspicious Transaction Detection (AI Rules)✅ AES-256 Encryption for Sensitive Data (e.g., Transaction Notes)✅ FluentValidation for Robust Input Validation✅ Rate Limiting for DDoS Prevention✅ Swagger UI with JWT Authorization Support✅ AutoMapper for DTO Mapping✅ Seed Data for Roles and Admin User
+✅ JWT Authentication & Role Management (Admin, User)
+✅ Two-Factor Authentication (2FA) Support
+✅ Clean Onion Architecture (Domain, Application, Infrastructure, Persistence, API)
+✅ Repository Pattern with Read/Write Separation
+✅ Full CRUD for Accounts, Transactions, and Payments
+✅ Audit Log System with IP Address, Browser Info, and Endpoint Tracking
+✅ Suspicious Transaction Detection (AI Rules)
+✅ AES-256 Encryption for Sensitive Data (e.g., Transaction Notes)
+✅ FluentValidation for Robust Input Validation
+✅ Rate Limiting for DDoS Prevention
+✅ Swagger UI with JWT Authorization Support
+✅ AutoMapper for DTO Mapping
+✅ Seed Data for Roles and Admin User
 
 📁 Project Structure
 
@@ -87,7 +99,7 @@ GET /api/auditlogs/{id}Logs include: UserId, TableName, Action, IPAddress, Brows
 
 POST /api/payments (Simulated or Stripe-based)
 
-🧾 Settings API
+🧾 Users API
 
 PUT /api/users/change-password
 
